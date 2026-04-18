@@ -24,6 +24,7 @@ import {
   Zap,
   MapPin,
   Ship,
+  Play,
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -601,6 +602,109 @@ function Integrations() {
   );
 }
 
+function LiveStreams() {
+  const [cameras, setCameras] = useState<Camera[]>([]);
+  const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/cameras`)
+      .then((res) => res.json())
+      .then(setCameras)
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (cameras.length > 0 && !selectedCamera) {
+      setSelectedCamera(cameras[0]);
+    }
+  }, [cameras]);
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <Video className="text-blue-400" />
+          Live Streams
+        </h1>
+        <div className="text-sm text-gray-400">
+          {cameras.length} camera{cameras.length !== 1 ? 's' : ''} active
+        </div>
+      </div>
+
+      {cameras.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+          <Video size={64} className="mb-4 opacity-50" />
+          <p className="text-xl">No cameras configured</p>
+          <Link to="/cameras" className="mt-4 text-blue-400 hover:text-blue-300">
+            Add a camera →
+          </Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <div className="lg:col-span-3 bg-black rounded-xl overflow-hidden border border-gray-700 aspect-video">
+            {selectedCamera ? (
+              <div className="relative w-full h-full flex items-center justify-center bg-gray-900">
+                <div className="text-center">
+                  <Video size={64} className="mx-auto mb-4 text-gray-600" />
+                  <p className="text-white text-lg">{selectedCamera.name}</p>
+                  <p className="text-gray-500 text-sm mt-2">
+                    {selectedCamera.is_demo ? 'Demo Mode' : selectedCamera.stream_url || 'No stream URL'}
+                  </p>
+                  <p className="text-yellow-500 text-sm mt-4">
+                    RTSP stream will be processed by AI engine
+                  </p>
+                </div>
+                <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-white text-sm">Live</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                Select a camera to view
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {cameras.map((camera) => (
+              <button
+                key={camera.id}
+                onClick={() => setSelectedCamera(camera)}
+                className={`w-full p-3 rounded-lg text-left transition-colors ${
+                  selectedCamera?.id === camera.id
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${camera.enabled ? 'bg-green-500' : 'bg-gray-500'}`} />
+                  <span className="font-medium truncate">{camera.name}</span>
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {camera.is_demo ? 'Demo' : 'Live'}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
+        <h3 className="font-semibold text-white mb-2">Stream Information</h3>
+        {selectedCamera && (
+          <div className="text-sm text-gray-400 space-y-1">
+            <p><span className="text-gray-500">Camera ID:</span> {selectedCamera.camera_id}</p>
+            <p><span className="text-gray-500">Location:</span> {selectedCamera.location || 'Unknown'}</p>
+            <p><span className="text-gray-500">Status:</span> {selectedCamera.enabled ? 'Online' : 'Offline'}</p>
+            <p><span className="text-gray-500">Mode:</span> {selectedCamera.is_demo ? 'Demo' : 'Production'}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SystemSettings() {
   return (
     <div className="p-6 space-y-6">
@@ -644,6 +748,7 @@ function Sidebar() {
 
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
+    { path: '/streams', icon: Play, label: 'Live Streams' },
     { path: '/cameras', icon: Camera, label: 'Cameras' },
     { path: '/events', icon: Bell, label: 'Events' },
     { path: '/rules', icon: Shield, label: 'Rules' },
@@ -695,6 +800,7 @@ export default function App() {
         <div className="flex-1 bg-gray-900 overflow-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/streams" element={<LiveStreams />} />
             <Route path="/cameras" element={<Cameras />} />
             <Route path="/events" element={<Events />} />
             <Route path="/rules" element={<Rules />} />
