@@ -606,9 +606,8 @@ function LiveStreams() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
   const [streamUrl, setStreamUrl] = useState<string>('');
-  const [imgKey, setImgKey] = useState(0);
-
-  const STREAM_API = 'http://localhost:8001';
+const [imgKey, setImgKey] = useState(0);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     fetch(`${API_URL}/api/cameras`)
@@ -624,14 +623,24 @@ function LiveStreams() {
   }, [cameras]);
 
   useEffect(() => {
-    if (selectedCamera && selectedCamera.stream_url && !selectedCamera.is_demo) {
-      fetch(`${STREAM_URL}/api/streams/${selectedCamera.camera_id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rtsp_url: selectedCamera.stream_url })
+    if (selectedCamera && !selectedCamera.is_demo && selectedCamera.stream_url) {
+      fetch(`${STREAM_API}/api/streams/${selectedCamera.camera_id}?rtsp_url=${encodeURIComponent(selectedCamera.stream_url)}`, {
+        method: 'POST'
       }).catch(console.error);
+      setImgError(false);
     }
-  }, [selectedCamera]);
+  }, [selectedCamera?.camera_id]);
+
+  useEffect(() => {
+    if (selectedCamera && !selectedCamera.is_demo) {
+      const interval = setInterval(() => {
+        if (!imgError) {
+          setImgKey(k => k + 1);
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedCamera, imgError]);
 
   useEffect(() => {
     if (selectedCamera && !selectedCamera.is_demo) {
@@ -664,9 +673,9 @@ function LiveStreams() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <div className="lg:col-span-3 bg-black rounded-xl overflow-hidden border border-gray-700 aspect-video">
+<div className="lg:col-span-3 bg-black rounded-xl overflow-hidden border border-gray-700" style={{ aspectRatio: '16/9' }}>
             {selectedCamera ? (
-              <div className="relative w-full h-full">
+              <div className="relative w-full h-full flex items-center justify-center bg-gray-900">
                 {selectedCamera.is_demo ? (
                   <div className="flex items-center justify-center h-full bg-gray-900">
                     <div className="text-center">
@@ -675,15 +684,22 @@ function LiveStreams() {
                       <p className="text-gray-500 text-sm mt-2">Demo Mode - No live video</p>
                     </div>
                   </div>
+                ) : imgError ? (
+                  <div className="flex items-center justify-center h-full bg-gray-900">
+                    <div className="text-center">
+                      <Video size={64} className="mx-auto mb-4 text-red-500" />
+                      <p className="text-white text-lg">Stream unavailable</p>
+                      <p className="text-gray-500 text-sm mt-2">Checking connection...</p>
+                    </div>
+                  </div>
                 ) : (
                   <img
                     key={imgKey}
                     src={`${STREAM_API}/api/streams/${selectedCamera.camera_id}/frame.jpg?t=${imgKey}`}
                     alt={selectedCamera.name}
                     className="w-full h-full object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
+                    onError={() => setImgError(true)}
+                    onLoad={() => setImgError(false)}
                   />
                 )}
                 <div className="absolute top-4 right-4 flex items-center gap-2">
