@@ -83,13 +83,6 @@ services:
       - port-surveillance-net
     volumes:
       - snapshots:/app/snapshots
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 0
-              capabilities: [gpu]
 
   frontend:
     build:
