@@ -48,63 +48,81 @@ graph TB
 | `analytics-worker` | YOLO + tracking pipeline | - |
 | `digifort-emulator` | Digifort mock receiver | 8080 |
 
-## Features
+## Requirements
 
-- **Object Detection**: Ships, boats, kayaks, rafts, unknown marine objects
-- **Multi-Object Tracking**: Persistent track IDs with ByteTrack
-- **Direction Analysis**: Entering, leaving, parallel, stationary
-- **Virtual Lines & Zones**: Polygon zone entry, line crossing detection
-- **Rule Engine**: Configurable rules with cooldown, severity, snapshots
-- **False Alarm Reduction**: Minimum size filter, repeated detection confirmation
-- **Digifort Integration**: HTTP REST + TCP virtual sensor
-- **Demo Mode**: Works without real cameras using sample videos
+- Docker 24.0+
+- Docker Compose 2.20+
+- 4GB+ RAM (8GB+ recommended for AI processing)
+- PostgreSQL client (optional for debugging)
 
 ## Quick Start
 
-### Prerequisites
-- Docker 24.0+
-- Docker Compose 2.20+
+### 1. Clone the repository
 
-### Setup
-
-1. Clone the repository:
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/gelzinis/port-surveillance.git
 cd port-surveillance
 ```
 
-2. Copy environment file:
+### 2. Configure environment
+
 ```bash
 cp .env.example .env
 ```
 
-3. Start all services:
+Edit `.env` file with your settings:
+
+```bash
+# Database
+DB_USER=portvision
+DB_PASSWORD=changeme
+DATABASE_URL=postgresql://portvision:changeme@database:5432/port_surveillance
+
+# Redis
+REDIS_URL=redis://redis:6379
+
+# Security - CHANGE THIS IN PRODUCTION!
+SECRET_KEY=your-secret-key-here
+
+# Demo mode (set to false for real cameras)
+DEMO_MODE=true
+
+# YOLO model (yolov8n, yolov8s, yolov8m)
+YOLO_MODEL=yolov8n
+```
+
+### 3. Start the system
+
 ```bash
 docker compose up --build
 ```
 
-4. Access the dashboard:
-- Frontend: http://localhost:3000
-- API Docs: http://localhost:8000/docs
+### 4. Access the dashboard
 
-### Default Credentials
-- Username: `admin`
-- Password: `admin` (change in production)
+- **Dashboard**: http://localhost:3000
+- **API Docs**: http://localhost:8000/docs
+- **Health Check**: http://localhost:8000/health
 
-## Environment Variables
+## Default Credentials
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection | postgresql://user:pass@database:5432/db |
-| `REDIS_URL` | Redis connection | redis://redis:6379 |
-| `SECRET_KEY` | JWT secret | changeme |
-| `DEMO_MODE` | Enable demo mode | true |
-| `YOLO_MODEL` | YOLO model size | yolov8n |
-| `DIGIFORT_URL` | Digifort endpoint | http://localhost:8080 |
+After first run, you can register a user via the API or use the system in demo mode without authentication.
 
-## Camera Configuration
+## Adding Cameras
 
-Add cameras via the API or dashboard:
+### Via Web UI
+
+1. Go to http://localhost:3000
+2. Navigate to **Cameras** tab
+3. Click **Add Camera**
+4. Fill in the details:
+   - Camera ID: Unique identifier (e.g., `CAM-001`)
+   - Name: Display name (e.g., "Port Entrance North")
+   - Location: Physical location
+   - Stream URL: RTSP URL (e.g., `rtsp://192.168.1.100:554/stream`)
+   - FPS Target: Target frames per second (default: 10)
+   - Demo Mode: Check for testing without real camera
+
+### Via API
 
 ```bash
 curl -X POST http://localhost:8000/api/cameras \
@@ -113,22 +131,62 @@ curl -X POST http://localhost:8000/api/cameras \
     "camera_id": "CAM-001",
     "name": "Port Entrance",
     "location": "North Pier",
-    "stream_url": "rtsp://camera-ip:554/stream",
+    "stream_url": "rtsp://192.168.1.100:554/stream",
     "fps_target": 10,
     "is_demo": false
   }'
 ```
 
-Or use the web UI at http://localhost:3000/cameras
-
 ## Demo Mode
 
-When `DEMO_MODE=true`, the analytics worker looks for video files in `/app/samples/`. Place sample maritime videos named `{camera_id}.mp4` in that directory, or they will be loaded from any `.mp4` file found.
+When `DEMO_MODE=true` in `.env`, the system runs without real cameras:
+
+1. Place sample videos in `samples/` folder named `{camera_id}.mp4`
+2. Or the system will use any `.mp4` file found in samples directory
+3. Demo cameras are automatically created on first run
+
+## Configuration Options
+
+### YOLO Models
+
+| Model | Size | Speed | Accuracy |
+|-------|------|-------|---------|
+| `yolov8n` | 6MB | Fastest | Lowest |
+| `yolov8s` | 22MB | Fast | Medium |
+| `yolov8m` | 52MB | Medium | High |
+
+### Camera Settings
+
+- **ROI (Region of Interest)**: Define area to analyze
+- **Horizon Line**: Filter distant objects above horizon
+- **Minimum Object Size**: Filter small objects/noise
+- **Confidence Threshold**: Detection sensitivity (0.0-1.0)
+
+### Rule Configuration
+
+Create detection rules via API or UI:
+
+```bash
+curl -X POST http://localhost:8000/api/rules \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rule_id": "RULE-001",
+    "name": "Ship Detection",
+    "event_type": "object_detected",
+    "object_classes": ["ship", "boat"],
+    "confidence_threshold": 0.6,
+    "enabled": true,
+    "cooldown_seconds": 60,
+    "severity": "high",
+    "take_snapshot": true
+  }'
+```
 
 ## Digifort Integration
 
-### HTTP REST Integration
-Configure Digifort webhook URL in settings. Events are sent as JSON:
+### HTTP Integration
+
+Configure webhook URL in settings. Events are sent as JSON:
 
 ```json
 {
@@ -144,85 +202,95 @@ Configure Digifort webhook URL in settings. Events are sent as JSON:
 ```
 
 ### TCP Virtual Sensor
-The `digifort-emulator` service listens on port 8080 for testing.
+
+The emulator listens on port 8080:
+- For testing, connect to `http://localhost:8080`
+- Endpoint: `POST /api/virtual-sensor`
+
+### Enable Integration
+
+```bash
+DIGIFORT_ENABLED=true
+DIGIFORT_URL=http://your-digifort-server:8080
+```
 
 ## API Documentation
 
-Interactive API docs available at http://localhost:8000/docs
+Interactive documentation available at http://localhost:8000/docs
 
 ### Key Endpoints
 
-- `GET /api/cameras` - List cameras
-- `POST /api/cameras` - Add camera
-- `GET /api/events` - Query events
-- `POST /api/detections` - Receive detections from worker
-- `GET /api/analytics/overview` - Dashboard stats
-- `GET /health` - Health check
-
-## Development
-
-### Folder Structure
-
-```
-/frontend         # React dashboard
-/backend          # FastAPI backend
-/analytics       # YOLO + tracking worker
-/infra           # Docker configs, DB init
-/scripts         # Utility scripts
-/samples         # Demo video files
-```
-
-### Running Tests
-
-```bash
-# Backend tests
-cd backend && python -m pytest
-
-# Full system health check
-curl http://localhost:8000/health
-```
-
-## Limitations (MVP)
-
-- Basic tracking (no re-identification after long occlusion)
-- Direction analysis based on simple motion vectors
-- No_gpu = CPU only (slower processing)
-- No AIS/IMO/MMSI fusion yet
-- Basic false alarm filtering
-
-## Roadmap
-
-- [ ] TensorRT optimization for Jetson Orin
-- [ ] Fine-tuned maritime detection model
-- [ ] Thermal camera support
-- [ ] AIS data fusion
-- [ ] Advanced alert scoring
-- [ ] Long-term analytics
-
-## Security Notes
-
-- Change `SECRET_KEY` in production
-- Use strong database passwords
-- Secure Redis with password
-- Use TLS in production
-- Restrict CORS origins
+| Method | Endpoint | Description |
+|--------|----------|------------|
+| GET | `/api/cameras` | List all cameras |
+| POST | `/api/cameras` | Add new camera |
+| GET | `/api/events` | Query events |
+| GET | `/api/analytics/overview` | Dashboard stats |
+| GET | `/health` | System health check |
+| GET | `/api/rules` | List detection rules |
 
 ## Troubleshooting
 
 ### Services won't start
+
 ```bash
+# Check logs
 docker compose logs
+
+# Common issues:
+# - Port already in use: Change port in docker-compose.yml
+# - Database connection: Wait for DB to initialize
 ```
 
-### Stream connection fails
-- Check camera IP/port is accessible
-- Verify RTSP URL format
-- Check network firewall
-
 ### No detections
-- Verify YOLO model loaded
-- Check confidence thresholds
-- Ensure ROI covers water area
+
+1. Verify camera is connected: `docker compose logs analytics-worker`
+2. Check YOLO model loaded
+3. Verify RTSP URL is correct
+4. Check confidence thresholds
+
+### High CPU usage
+
+- Reduce FPS target in camera settings
+- Use smaller YOLO model (yolov8n)
+- Enable ROI to reduce frame area
+
+### Database issues
+
+```bash
+# Reset database
+docker compose down -v
+docker compose up -d
+```
+
+## Production Deployment
+
+### Security Checklist
+
+- [ ] Change `SECRET_KEY` to random string
+- [ ] Use strong database password
+- [ ] Enable Redis authentication
+- [ ] Configure firewall rules
+- [ ] Use HTTPS in production
+- [ ] Restrict CORS origins
+
+### Performance Tuning
+
+For high traffic:
+- Increase worker count
+- Use GPU for YOLO (TensorRT)
+- Optimize ROI areas
+- Adjust detection intervals
+
+### Backup
+
+```bash
+# Backup database
+docker compose exec database pg_dump -U portvision port_surveillance > backup.sql
+
+# Backup snapshots
+docker compose cp analytics-worker:/app/snapshots ./snapshots-backup
+```
 
 ## License
 
@@ -230,4 +298,5 @@ Proprietary - All rights reserved
 
 ## Support
 
-For issues and questions, contact the development team.
+For issues and questions:
+- GitHub Issues: https://github.com/gelzinis/port-surveillance/issues
