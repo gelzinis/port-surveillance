@@ -1,0 +1,135 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:15-alpine
+    container_name: port-surveillance-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-portvision}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: port_surveillance
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - port-surveillance-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-portvision}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: port-surveillance-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - port-surveillance-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: port-surveillance-api
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://portvision:changeme@database:5432/port_surveillance}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      SECRET_KEY: ${SECRET_KEY:-changeme-secret-key}
+      DIGIFORT_ENABLED: ${DIGIFORT_ENABLED:-false}
+      DIGIFORT_URL: ${DIGIFORT_URL:-http://localhost:8080}
+      DEMO_MODE: ${DEMO_MODE:-true}
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - port-surveillance-net
+    volumes:
+      - snapshots:/app/snapshots
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  analytics-worker:
+    build:
+      context: ./analytics
+      dockerfile: Dockerfile
+    container_name: port-surveillance-analytics
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://portvision:changeme@database:5432/port_surveillance}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      API_BASE_URL: ${API_BASE_URL:-http://backend-api:8000}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      YOLO_MODEL: ${YOLO_MODEL:-yolov8n}
+    depends_on:
+      backend-api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      database:
+        condition: service_healthy
+    networks:
+      - port-surveillance-net
+    volumes:
+      - snapshots:/app/snapshots
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: optional
+              capabilities: [gpu]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: port-surveillance-frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    networks:
+      - port-surveillance-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  digifort-emulator:
+    build:
+      context: ./analytics
+      dockerfile: Dockerfile.emulator
+    container_name: port-surveillance-digifort-emulator
+    environment:
+      LISTEN_PORT: ${DIGIFORT_LISTEN_PORT:-8080}
+    ports:
+      - "8080:8080"
+    networks:
+      - port-surveillance-net
+
+networks:
+  port-surveillance-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  snapshots:
