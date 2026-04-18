@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir --upgrade pip
+
+RUN pip install --no-cache-dir fastapi uvicorn opencv-python-headless numpy python-multipart
+
+COPY stream_proxy.py .
+
+EXPOSE 8001
+
+CMD ["python", "stream_proxy.py"]

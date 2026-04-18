@@ -99,6 +99,16 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  stream-proxy:
+    build:
+      context: ./analytics
+      dockerfile: Dockerfile.stream
+    container_name: port-surveillance-stream-proxy
+    ports:
+      - "8001:8001"
+    networks:
+      - port-surveillance-net
+
   digifort-emulator:
     build:
       context: ./analytics

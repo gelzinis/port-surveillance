@@ -605,6 +605,10 @@ function Integrations() {
 function LiveStreams() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
+  const [streamUrl, setStreamUrl] = useState<string>('');
+  const [imgKey, setImgKey] = useState(0);
+
+  const STREAM_API = 'http://localhost:8001';
 
   useEffect(() => {
     fetch(`${API_URL}/api/cameras`)
@@ -618,6 +622,25 @@ function LiveStreams() {
       setSelectedCamera(cameras[0]);
     }
   }, [cameras]);
+
+  useEffect(() => {
+    if (selectedCamera && selectedCamera.stream_url && !selectedCamera.is_demo) {
+      fetch(`${STREAM_URL}/api/streams/${selectedCamera.camera_id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rtsp_url: selectedCamera.stream_url })
+      }).catch(console.error);
+    }
+  }, [selectedCamera]);
+
+  useEffect(() => {
+    if (selectedCamera && !selectedCamera.is_demo) {
+      const interval = setInterval(() => {
+        setImgKey(k => k + 1);
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [selectedCamera]);
 
   return (
     <div className="p-6 space-y-6">
@@ -643,20 +666,32 @@ function LiveStreams() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           <div className="lg:col-span-3 bg-black rounded-xl overflow-hidden border border-gray-700 aspect-video">
             {selectedCamera ? (
-              <div className="relative w-full h-full flex items-center justify-center bg-gray-900">
-                <div className="text-center">
-                  <Video size={64} className="mx-auto mb-4 text-gray-600" />
-                  <p className="text-white text-lg">{selectedCamera.name}</p>
-                  <p className="text-gray-500 text-sm mt-2">
-                    {selectedCamera.is_demo ? 'Demo Mode' : selectedCamera.stream_url || 'No stream URL'}
-                  </p>
-                  <p className="text-yellow-500 text-sm mt-4">
-                    RTSP stream will be processed by AI engine
-                  </p>
-                </div>
-                <div className="absolute bottom-4 right-4 flex items-center gap-2">
+              <div className="relative w-full h-full">
+                {selectedCamera.is_demo ? (
+                  <div className="flex items-center justify-center h-full bg-gray-900">
+                    <div className="text-center">
+                      <Video size={64} className="mx-auto mb-4 text-gray-600" />
+                      <p className="text-white text-lg">{selectedCamera.name}</p>
+                      <p className="text-gray-500 text-sm mt-2">Demo Mode - No live video</p>
+                    </div>
+                  </div>
+                ) : (
+                  <img
+                    key={imgKey}
+                    src={`${STREAM_API}/api/streams/${selectedCamera.camera_id}/frame.jpg?t=${imgKey}`}
+                    alt={selectedCamera.name}
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                )}
+                <div className="absolute top-4 right-4 flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-white text-sm">Live</span>
+                  <span className="text-white text-sm bg-black/50 px-2 py-1 rounded">Live</span>
+                </div>
+                <div className="absolute bottom-4 left-4 text-white text-sm bg-black/50 px-2 py-1 rounded">
+                  {selectedCamera.name}
                 </div>
               </div>
             ) : (
