@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arena Survival</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="hud">
+            <div class="hud-left">
+                <div class="stat">
+                    <span class="stat-label">SCORE</span>
+                    <span id="score" class="stat-value">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">BEST</span>
+                    <span id="highscore" class="stat-value">0</span>
+                </div>
+            </div>
+            <div class="hud-center">
+                <div class="health-bar">
+                    <div id="healthFill" class="health-fill"></div>
+                </div>
+                <div class="timer">
+                    <span id="timer">00:00</span>
+                </div>
+            </div>
+            <div class="hud-right">
+                <div class="powerup-indicator" id="powerupShield">
+                    <span class="icon">🛡</span>
+                </div>
+                <div class="powerup-indicator" id="powerupSpeed">
+                    <span class="icon">⚡</span>
+                </div>
+                <div class="powerup-indicator" id="powerupFreeze">
+                    <span class="icon">❄</span>
+                </div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="900" height="700"></canvas>
+
+        <div id="startScreen" class="screen-overlay active">
+            <div class="screen-content">
+                <div class="game-title">
+                    <h1>ARENA</h1>
+                    <h2>SURVIVAL</h2>
+                </div>
+                <p class="tagline">Survive the horde. Collect power-ups. Endure.</p>
+
+                <div class="instructions-panel">
+                    <div class="controls">
+                        <h3>Controls</h3>
+                        <div class="key-row">
+                            <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+                            <span>or</span>
+                            <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd>
+                            <span>Move</span>
+                        </div>
+                        <div class="key-row">
+                            <kbd>SPACE</kbd>
+                            <span>Pause</span>
+                        </div>
+                    </div>
+
+                    <div class="legend">
+                        <h3>Enemies</h3>
+                        <div class="legend-item">
+                            <div class="enemy-sample chaser"></div>
+                            <span>Chaser - Standard enemy</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="enemy-sample sprinter"></div>
+                            <span>Sprinter - Fast & fragile</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="enemy-sample tank"></div>
+                            <span>Tank - Slow & tough</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="enemy-sample splitter"></div>
+                            <span>Splitter - Splits on death</span>
+                        </div>
+                    </div>
+
+                    <div class="legend">
+                        <h3>Power-ups</h3>
+                        <div class="legend-item">
+                            <div class="powerup-sample health">❤</div>
+                            <span>Health (+25 HP)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="powerup-sample speed">⚡</div>
+                            <span>Speed Boost (5s)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="powerup-sample shield">🛡</div>
+                            <span>Shield (Invincibility 8s)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="powerup-sample freeze">❄</div>
+                            <span>Freeze (Stop enemies 5s)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="powerup-sample mult">×2</div>
+                            <span>2x Score (10s)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="powerup-sample nuke">💥</div>
+                            <span>Nuke (Clear screen)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="startBtn" class="btn btn-start">START GAME</button>
+                <div class="highscore-display">
+                    <span>High Score: </span>
+                    <span id="titleHighscore">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="pauseScreen" class="screen-overlay">
+            <div class="screen-content">
+                <h1>PAUSED</h1>
+                <p>Press SPACE to resume</p>
+                <button id="resumeBtn" class="btn">RESUME</button>
+            </div>
+        </div>
+
+        <div id="gameOverScreen" class="screen-overlay">
+            <div class="screen-content">
+                <h1 class="game-over-title">GAME OVER</h1>
+                <div class="stats-panel">
+                    <div class="stat-row">
+                        <span>Final Score</span>
+                        <span id="finalScore">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Time Survived</span>
+                        <span id="finalTime">00:00</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Enemies Defeated</span>
+                        <span id="finalEnemies">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Power-ups Used</span>
+                        <span id="finalPowerups">0</span>
+                    </div>
+                </div>
+                <div id="newHighscoreBadge" class="new-highscore">NEW HIGH SCORE!</div>
+                <button id="restartBtn" class="btn btn-start">PLAY AGAIN</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/sound.js"></script>
+    <script src="js/effects.js"></script>
+    <script src="js/entities.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
