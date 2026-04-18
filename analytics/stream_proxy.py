@@ -65,8 +65,10 @@ async def get_frame(camera_id: str):
     if not ret:
         raise HTTPException(status_code=500, detail="Failed to encode frame")
     
+    jpeg_bytes = jpeg.tobytes()
+    
     return StreamingResponse(
-        bytes(jpeg.tobytes()),
+        iter([jpeg_bytes]),
         media_type="image/jpeg",
         headers={
             "Cache-Control": "no-cache, no-store, must-revalidate",
